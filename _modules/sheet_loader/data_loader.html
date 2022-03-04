@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sheet_loader.data_loader &mdash; Sheet Loader vCompletedProcess(args=[&#39;poetry&#39;, &#39;version&#39;, &#39;-s&#39;], returncode=0, stdout=b&#39;0.0.1\n&#39;) documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> Sheet Loader
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">sheet_loader</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Sheet Loader</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>sheet_loader.data_loader</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sheet_loader.data_loader</h1><div class="highlight"><pre>
+<span></span><span class="c1"># coding=utf-8</span>
+<span class="kn">import</span> <span class="nn">csv</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">contextlib</span> <span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span> <span class="nn">tempfile</span> <span class="kn">import</span> <span class="n">SpooledTemporaryFile</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Tuple</span>
+
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">chardet</span> <span class="kn">import</span> <span class="n">UniversalDetector</span>
+
+<span class="kn">from</span> <span class="nn">.constants</span> <span class="kn">import</span> <span class="n">DEFAULT_CHUNK_SIZE</span>
+<span class="kn">from</span> <span class="nn">.helpers</span> <span class="kn">import</span> <span class="n">frame_chunker</span>
+
+<span class="n">GeneralPath</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">SpooledTemporaryFile</span><span class="p">]</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">s3path</span> <span class="kn">import</span> <span class="n">S3Path</span>
+
+    <span class="n">S3PATH_EXISTS</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">GeneralPath</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">GeneralPath</span><span class="p">,</span> <span class="n">S3Path</span><span class="p">]</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">S3PATH_EXISTS</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">S3Path</span> <span class="o">=</span> <span class="kc">None</span>
+<span class="k">try</span><span class="p">:</span>
+    <span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">UploadFile</span>
+
+    <span class="n">FASTAPI_EXISTS</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">GeneralPathOrUpload</span> <span class="o">=</span> <span class="n">Union</span><span class="p">[</span><span class="n">GeneralPath</span><span class="p">,</span> <span class="n">UploadFile</span><span class="p">]</span>
+<span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+    <span class="n">FASTAPI_EXISTS</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="n">UploadFile</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">GeneralPathOrUpload</span> <span class="o">=</span> <span class="n">GeneralPath</span>
+
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">csv_sniff</span> <span class="o">=</span> <span class="n">csv</span><span class="o">.</span><span class="n">Sniffer</span><span class="p">()</span>
+<span class="n">csv_sniff</span><span class="o">.</span><span class="n">preferred</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;|&quot;</span><span class="p">,</span> <span class="s2">&quot;,&quot;</span><span class="p">,</span> <span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">]</span>
+
+
+<div class="viewcode-block" id="sheet_loader"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.sheet_loader">[docs]</a><span class="k">def</span> <span class="nf">sheet_loader</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPath</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;.xls&quot;</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">load_xlsx</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">load_csv</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="lazy_open"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.lazy_open">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">lazy_open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;read&quot;</span><span class="p">):</span>
+        <span class="n">file</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">file</span>
+        <span class="k">finally</span><span class="p">:</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;open&quot;</span><span class="p">):</span>
+        <span class="k">with</span> <span class="n">file</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">fh</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="k">yield</span> <span class="n">fh</span></div>
+
+
+<div class="viewcode-block" id="detect_encoding"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.detect_encoding">[docs]</a><span class="k">def</span> <span class="nf">detect_encoding</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPath</span><span class="p">,</span> <span class="n">return_size</span><span class="o">=</span><span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+    <span class="n">detector</span> <span class="o">=</span> <span class="n">UniversalDetector</span><span class="p">()</span>
+    <span class="n">buffer</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+    <span class="k">with</span> <span class="n">lazy_open</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+        <span class="k">while</span> <span class="n">chunk</span> <span class="o">:=</span> <span class="n">fh</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">4096</span><span class="p">):</span>
+            <span class="n">detector</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+            <span class="n">buffer</span> <span class="o">+=</span> <span class="n">chunk</span>
+            <span class="k">if</span> <span class="n">detector</span><span class="o">.</span><span class="n">done</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">return_size</span><span class="p">:</span>
+                <span class="k">break</span>
+    <span class="k">if</span> <span class="n">detector</span><span class="o">.</span><span class="n">done</span><span class="p">:</span>
+        <span class="n">encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">res</span> <span class="o">=</span> <span class="n">detector</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">,</span> <span class="s2">&quot;ascii&quot;</span><span class="p">):</span>
+            <span class="n">encoding</span> <span class="o">=</span> <span class="s2">&quot;utf-8&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">encoding</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">res</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span>
+
+    <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Encoding: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">encoding</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">encoding</span><span class="p">,</span> <span class="n">buffer</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="n">encoding</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="load_xlsx"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.load_xlsx">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">load_xlsx</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPath</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="s2">&quot;as_uri&quot;</span><span class="p">):</span>
+        <span class="k">yield</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">file</span><span class="o">.</span><span class="n">as_uri</span><span class="p">(),</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_excel</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">)</span></div>
+    <span class="c1"># df = wr.s3.read_excel(</span>
+    <span class="c1">#     file.as_uri(),</span>
+    <span class="c1">#     dtype=&quot;string&quot;,</span>
+    <span class="c1">#     parse_dates=DTYPE_DATES,</span>
+    <span class="c1"># )</span>
+    <span class="c1"># return df</span>
+
+
+<div class="viewcode-block" id="load_csv"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.load_csv">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">load_csv</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPath</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">):</span>
+    <span class="n">encoding</span><span class="p">,</span> <span class="n">buffer</span> <span class="o">=</span> <span class="n">detect_encoding</span><span class="p">(</span><span class="n">file</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">dialect</span> <span class="o">=</span> <span class="n">csv_sniff</span><span class="o">.</span><span class="n">sniff</span><span class="p">(</span><span class="n">buffer</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+            <span class="s2">&quot;Dialect: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">dialect</span><span class="o">.</span><span class="vm">__dict__</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;_&quot;</span><span class="p">)},</span>
+        <span class="p">)</span>
+        <span class="c1"># header_line = next(</span>
+        <span class="c1">#     csv.reader(io.StringIO(buffer, newline=None), dialect=dialect)</span>
+        <span class="c1"># )</span>
+        <span class="c1"># dtypes = {k: v for k, v in DTYPE_MAP.items() if k in header_line}</span>
+        <span class="c1"># date_dtypes = [v for v in DTYPE_DATES if v in header_line]</span>
+        <span class="k">with</span> <span class="n">lazy_open</span><span class="p">(</span><span class="n">file</span><span class="p">)</span> <span class="k">as</span> <span class="n">fh</span><span class="p">:</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span>
+                <span class="n">fh</span><span class="p">,</span>
+                <span class="n">dialect</span><span class="o">=</span><span class="n">dialect</span><span class="p">,</span>
+                <span class="n">encoding</span><span class="o">=</span><span class="n">encoding</span><span class="p">,</span>
+                <span class="n">on_bad_lines</span><span class="o">=</span><span class="s2">&quot;warn&quot;</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="s2">&quot;string&quot;</span><span class="p">,</span>
+                <span class="n">header</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="k">yield</span> <span class="n">df</span>
+    <span class="k">except</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">exception</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">stack_info</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">raise</span></div>
+
+
+<div class="viewcode-block" id="load_xlsx_chunked"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.load_xlsx_chunked">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">load_xlsx_chunked</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPath</span><span class="p">,</span> <span class="n">chunksize</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">):</span>
+    <span class="k">with</span> <span class="n">load_xlsx</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">**</span><span class="n">pd_kwargs</span><span class="p">)</span> <span class="k">as</span> <span class="n">data</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">frame_chunker</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">chunksize</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="generic_load_sheet"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.data_loader.generic_load_sheet">[docs]</a><span class="nd">@contextmanager</span>
+<span class="k">def</span> <span class="nf">generic_load_sheet</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">GeneralPathOrUpload</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">DEFAULT_CHUNK_SIZE</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">FASTAPI_EXISTS</span> <span class="ow">and</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">UploadFile</span><span class="p">):</span>
+        <span class="n">our_file</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">file</span>
+        <span class="k">if</span> <span class="p">(</span>
+            <span class="n">file</span><span class="o">.</span><span class="n">content_type</span> <span class="o">==</span> <span class="s2">&quot;application/vnd.openxmlformats-officedocument.spreadsheetml.sheet&quot;</span>
+            <span class="ow">or</span> <span class="n">file</span><span class="o">.</span><span class="n">filename</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;xlsx&quot;</span><span class="p">)</span>
+            <span class="ow">or</span> <span class="n">file</span><span class="o">.</span><span class="n">filename</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;xls&quot;</span><span class="p">)</span>
+        <span class="p">):</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="n">load_xlsx_chunked</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="n">load_csv</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">our_file</span> <span class="o">=</span> <span class="n">file</span>
+        <span class="k">if</span> <span class="n">file</span><span class="o">.</span><span class="n">suffix</span><span class="o">.</span><span class="n">lower</span><span class="p">()[</span><span class="mi">1</span><span class="p">:]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;xls&quot;</span><span class="p">):</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="n">load_xlsx_chunked</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">loader</span> <span class="o">=</span> <span class="n">load_csv</span>
+    <span class="k">with</span> <span class="n">loader</span><span class="p">(</span><span class="n">our_file</span><span class="p">,</span> <span class="n">chunksize</span><span class="o">=</span><span class="n">chunk_size</span><span class="p">)</span> <span class="k">as</span> <span class="n">loaded_file</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">loaded_file</span></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel Sullivan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
