@@ -1,7 +1,7 @@
 ..
     coding=utf-8
 
-Welcome to Python Template's documentation!
+Welcome to sheet-loader's documentation!
 ============================================
 
 .. toctree::

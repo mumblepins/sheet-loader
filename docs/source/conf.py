@@ -12,19 +12,21 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import subprocess
 import sys
 from datetime import datetime
 
-sys.path.insert(0, os.path.abspath("../../module"))
+sys.path.insert(0, os.path.abspath("../../src"))
 
 # -- Project information -----------------------------------------------------
 
-project = "Python Template"
+project = "Sheet Loader"
 copyright = f"{datetime.now().year}, Daniel Sullivan"
 author = "Daniel Sullivan"
 
 # The full version, including alpha/beta/rc tags
-release = "v0.0.1"
+poetry_version = subprocess.run(["poetry", "version", "-s"], stdout=subprocess.PIPE)
+release = f"v{poetry_version}"
 
 # -- General configuration ---------------------------------------------------
 
