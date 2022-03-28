@@ -434,7 +434,7 @@ use_chardet_on_py3 = ["chardet (>=3.0.2,<5)"]
 
 [[package]]
 name = "s3path"
-version = "0.3.3"
+version = "0.3.4"
 description = ""
 category = "main"
 optional = true
@@ -1020,8 +1020,8 @@ requests = [
     {file = "requests-2.27.1.tar.gz", hash = "sha256:68d7c56fd5a8999887728ef304a6d12edc7be74f1cfa47714fc8b414525c9a61"},
 ]
 s3path = [
-    {file = "s3path-0.3.3-py3-none-any.whl", hash = "sha256:176fc7bd980dcc6cf71014f5127481c8ae5edc1b1a5208e12b9667cee99f86ad"},
-    {file = "s3path-0.3.3.tar.gz", hash = "sha256:0a5676504f0c5684152f7c9703700c926f19a9d2a7f0bdad07f9b0fe5a726ba4"},
+    {file = "s3path-0.3.4-py3-none-any.whl", hash = "sha256:def51420bf9adf041c12ed3c5d07dda3b0956893a2493b40ed6b94ecd94d07a1"},
+    {file = "s3path-0.3.4.tar.gz", hash = "sha256:1a8cfeff71533cf5d97bde2855d9df336daa7b157e238faa8022abd7fba2842e"},
 ]
 s3transfer = [
     {file = "s3transfer-0.5.2-py3-none-any.whl", hash = "sha256:7a6f4c4d1fdb9a2b640244008e142cbc2cd3ae34b386584ef044dd0f27101971"},
