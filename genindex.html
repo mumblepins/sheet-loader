@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; Sheet Loader vCompletedProcess(args=[&#39;poetry&#39;, &#39;version&#39;, &#39;-s&#39;], returncode=0, stdout=b&#39;0.0.1\n&#39;) documentation</title>
+  <title>Index &mdash; sheet-loader v0.1.0 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -24,7 +24,7 @@
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-            <a href="index.html" class="icon icon-home"> Sheet Loader
+            <a href="index.html" class="icon icon-home"> sheet-loader
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -34,7 +34,8 @@
   </form>
 </div>
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
-              <ul>
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
 <li class="toctree-l1"><a class="reference internal" href="modules.html">sheet_loader</a></li>
 </ul>
 
@@ -44,7 +45,7 @@
 
     <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
-          <a href="index.html">Sheet Loader</a>
+          <a href="index.html">sheet-loader</a>
       </nav>
 
       <div class="wy-nav-content">
@@ -65,18 +66,49 @@
 <h1 id="index">Index</h1>
 
 <div class="genindex-jumpbox">
- <a href="#D"><strong>D</strong></a>
+ <a href="#C"><strong>C</strong></a>
+ | <a href="#D"><strong>D</strong></a>
  | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
  | <a href="#L"><strong>L</strong></a>
  | <a href="#M"><strong>M</strong></a>
+ | <a href="#O"><strong>O</strong></a>
+ | <a href="#P"><strong>P</strong></a>
+ | <a href="#R"><strong>R</strong></a>
  | <a href="#S"><strong>S</strong></a>
+ | <a href="#X"><strong>X</strong></a>
  
 </div>
+<h2 id="C">C</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.catch_exceptions">catch_exceptions() (in module sheet_loader.helpers)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.clean_kwargs">clean_kwargs() (in module sheet_loader.sheet_loader)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.LazyOpener.close">close() (sheet_loader.helpers.LazyOpener method)</a>
+
+      <ul>
+        <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.close">(sheet_loader.sheet_loader.SheetLoader method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.content_type">content_type (sheet_loader.types.FastApiFile attribute)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetFileType.CSV">CSV (sheet_loader.sheet_loader.SheetFileType attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
 <h2 id="D">D</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.detect_encoding">detect_encoding() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.data">data (sheet_loader.sheet_loader.SheetLoader property)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer">DetectingBuffer (class in sheet_loader.detecting_buffer)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -84,6 +116,18 @@
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile">FastApiFile (class in sheet_loader.types)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_and_process">feed_and_process() (sheet_loader.detecting_buffer.Processor method)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_detector">feed_detector() (sheet_loader.detecting_buffer.Processor method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.file">file (sheet_loader.types.FastApiFile attribute)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.filename">filename (sheet_loader.types.FastApiFile attribute)</a>
+</li>
       <li><a href="sheet_loader.html#sheet_loader.helpers.frame_chunker">frame_chunker() (in module sheet_loader.helpers)</a>
 </li>
   </ul></td>
@@ -92,7 +136,13 @@
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.generic_load_sheet">generic_load_sheet() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.get_best_encoding">get_best_encoding() (sheet_loader.detecting_buffer.Processor method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.get_csv_dialect">get_csv_dialect() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.get_file_data">get_file_data() (sheet_loader.sheet_loader.SheetLoader method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -100,15 +150,15 @@
 <h2 id="L">L</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.lazy_open">lazy_open() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.lazy_open">lazy_open() (in module sheet_loader.helpers)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.load_csv">load_csv() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.LazyOpener">LazyOpener (class in sheet_loader.helpers)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.load_xlsx">load_xlsx() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.load_csv">load_csv() (sheet_loader.sheet_loader.SheetLoader method)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.load_xlsx_chunked">load_xlsx_chunked() (in module sheet_loader.data_loader)</a>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.load_xlsx">load_xlsx() (sheet_loader.sheet_loader.SheetLoader method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -122,19 +172,83 @@
       <ul>
         <li><a href="sheet_loader.html#module-sheet_loader">sheet_loader</a>
 </li>
-        <li><a href="sheet_loader.html#module-sheet_loader.constants">sheet_loader.constants</a>
-</li>
-        <li><a href="sheet_loader.html#module-sheet_loader.data_loader">sheet_loader.data_loader</a>
+        <li><a href="sheet_loader.html#module-sheet_loader.detecting_buffer">sheet_loader.detecting_buffer</a>
 </li>
         <li><a href="sheet_loader.html#module-sheet_loader.helpers">sheet_loader.helpers</a>
 </li>
+        <li><a href="sheet_loader.html#module-sheet_loader.sheet_loader">sheet_loader.sheet_loader</a>
+</li>
+        <li><a href="sheet_loader.html#module-sheet_loader.types">sheet_loader.types</a>
+</li>
       </ul></li>
+  </ul></td>
+</tr></table>
+
+<h2 id="O">O</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.LazyOpener.open">open() (sheet_loader.helpers.LazyOpener method)</a>
+
+      <ul>
+        <li><a href="sheet_loader.html#sheet_loader.types.Openable.open">(sheet_loader.types.Openable method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.types.Openable">Openable (class in sheet_loader.types)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="P">P</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.helpers.PandasLoader">PandasLoader (class in sheet_loader.helpers)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.peek">peek() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor">Processor (class in sheet_loader.detecting_buffer)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="R">R</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.read">read() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
+
+      <ul>
+        <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.read">(sheet_loader.sheet_loader.SheetLoader method)</a>
+</li>
+        <li><a href="sheet_loader.html#sheet_loader.types.Readable.read">(sheet_loader.types.Readable method)</a>
+</li>
+      </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.read_sheet">read_sheet() (in module sheet_loader.sheet_loader)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.types.Readable">Readable (class in sheet_loader.types)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.reader">reader() (sheet_loader.detecting_buffer.DetectingBuffer static method)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.run">run() (sheet_loader.detecting_buffer.Processor method)</a>
+</li>
   </ul></td>
 </tr></table>
 
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.seek">seek() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
+
+      <ul>
+        <li><a href="sheet_loader.html#sheet_loader.types.Readable.seek">(sheet_loader.types.Readable method)</a>
+</li>
+      </ul></li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.seekable">seekable() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
+</li>
       <li>
     sheet_loader
 
@@ -142,24 +256,15 @@
         <li><a href="sheet_loader.html#module-sheet_loader">module</a>
 </li>
       </ul></li>
-      <li><a href="sheet_loader.html#sheet_loader.data_loader.sheet_loader">sheet_loader() (in module sheet_loader.data_loader)</a>
-</li>
       <li>
-    sheet_loader.constants
+    sheet_loader.detecting_buffer
 
       <ul>
-        <li><a href="sheet_loader.html#module-sheet_loader.constants">module</a>
+        <li><a href="sheet_loader.html#module-sheet_loader.detecting_buffer">module</a>
 </li>
       </ul></li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li>
-    sheet_loader.data_loader
-
-      <ul>
-        <li><a href="sheet_loader.html#module-sheet_loader.data_loader">module</a>
-</li>
-      </ul></li>
       <li>
     sheet_loader.helpers
 
@@ -167,6 +272,32 @@
         <li><a href="sheet_loader.html#module-sheet_loader.helpers">module</a>
 </li>
       </ul></li>
+      <li>
+    sheet_loader.sheet_loader
+
+      <ul>
+        <li><a href="sheet_loader.html#module-sheet_loader.sheet_loader">module</a>
+</li>
+      </ul></li>
+      <li>
+    sheet_loader.types
+
+      <ul>
+        <li><a href="sheet_loader.html#module-sheet_loader.types">module</a>
+</li>
+      </ul></li>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetFileType">SheetFileType (class in sheet_loader.sheet_loader)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader">SheetLoader (class in sheet_loader.sheet_loader)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="X">X</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetFileType.XLS">XLS (sheet_loader.sheet_loader.SheetFileType attribute)</a>
+</li>
   </ul></td>
 </tr></table>
 

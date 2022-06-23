@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>sheet_loader.detecting_buffer &mdash; sheet-loader v0.1.0 documentation</title>
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+            <a href="../../index.html" class="icon icon-home"> sheet-loader
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../modules.html">sheet_loader</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">sheet-loader</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+      <li>sheet_loader.detecting_buffer</li>
+      <li class="wy-breadcrumbs-aside">
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <h1>Source code for sheet_loader.detecting_buffer</h1><div class="highlight"><pre>
+<span></span><span class="c1"># -*- coding: utf-8 -*-</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
+
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">deque</span>
+<span class="kn">from</span> <span class="nn">csv</span> <span class="kn">import</span> <span class="n">Sniffer</span>
+<span class="kn">from</span> <span class="nn">multiprocessing</span> <span class="kn">import</span> <span class="n">Pipe</span><span class="p">,</span> <span class="n">Process</span>
+<span class="kn">from</span> <span class="nn">multiprocessing.connection</span> <span class="kn">import</span> <span class="n">Connection</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+
+<span class="kn">from</span> <span class="nn">chardet</span> <span class="kn">import</span> <span class="n">UniversalDetector</span>
+
+<span class="kn">from</span> <span class="nn">.helpers</span> <span class="kn">import</span> <span class="n">LazyOpener</span><span class="p">,</span> <span class="n">catch_exceptions</span>
+<span class="kn">from</span> <span class="nn">.types</span> <span class="kn">import</span> <span class="n">FilePathType</span><span class="p">,</span> <span class="n">Openable</span><span class="p">,</span> <span class="n">Readable</span>
+
+<span class="n">_LOG</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+<span class="n">CHUNK_SIZE</span> <span class="o">=</span> <span class="mi">32</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 128 kb chunks</span>
+<span class="n">MAGIC_BYTE_SEQUENCE</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;</span><span class="se">\xde\xca\xf0\xde\xad\xbe\xef</span><span class="s2">&quot;</span>
+<span class="n">MAX_DETECTION_SIZE</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">*</span> <span class="mi">1024</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 1MB max detection size</span>
+<span class="n">DEFAULT_START_ENCODING</span> <span class="o">=</span> <span class="s2">&quot;utf-8&quot;</span>
+<span class="n">ENCODING_PREFIX_LENGTH</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">CSV_SAMPLE_SIZE</span> <span class="o">=</span> <span class="mi">512</span> <span class="o">*</span> <span class="mi">1024</span>  <span class="c1"># 512 kb sample size</span>
+
+
+<div class="viewcode-block" id="DetectingBuffer"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer">[docs]</a><span class="k">class</span> <span class="nc">DetectingBuffer</span><span class="p">(</span><span class="n">Readable</span><span class="p">):</span>
+<div class="viewcode-block" id="DetectingBuffer.seek"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.seek">[docs]</a>    <span class="k">def</span> <span class="nf">seek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">__offset</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">__whence</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">...</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span></div>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">file</span><span class="p">:</span> <span class="n">Readable</span> <span class="o">|</span> <span class="n">Openable</span> <span class="o">|</span> <span class="n">FilePathType</span><span class="p">,</span>
+        <span class="c1"># newline=None,</span>
+        <span class="o">**</span><span class="n">kwargs</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+
+        <span class="c1"># self._newline = newline</span>
+        <span class="n">kwargs</span><span class="p">[</span><span class="s2">&quot;mode&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;rb&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_opener</span> <span class="o">=</span> <span class="n">LazyOpener</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_open_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_opener</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_in_read</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_write</span> <span class="o">=</span> <span class="n">Pipe</span><span class="p">(</span><span class="n">duplex</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_out_read</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_out_write</span> <span class="o">=</span> <span class="n">Pipe</span><span class="p">(</span><span class="n">duplex</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span> <span class="o">=</span> <span class="n">Process</span><span class="p">(</span>
+            <span class="n">target</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">reader</span><span class="p">,</span>
+            <span class="n">kwargs</span><span class="o">=</span><span class="p">{</span>
+                <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_open_file</span><span class="p">,</span>
+                <span class="s2">&quot;in_writer&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_write</span><span class="p">,</span>
+                <span class="s2">&quot;chunk_size&quot;</span><span class="p">:</span> <span class="n">kwargs</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;chunk_size&quot;</span><span class="p">,</span> <span class="n">CHUNK_SIZE</span><span class="p">),</span>
+            <span class="p">},</span>
+            <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_processor</span> <span class="o">=</span> <span class="n">Processor</span><span class="p">(</span><span class="n">in_reader</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_read</span><span class="p">,</span> <span class="n">out_writer</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_out_write</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_processor</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_buffer</span><span class="p">:</span> <span class="n">deque</span> <span class="o">=</span> <span class="n">deque</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_done</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+<div class="viewcode-block" id="DetectingBuffer.reader"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.reader">[docs]</a>    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">reader</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">in_writer</span><span class="p">:</span> <span class="n">Connection</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="n">CHUNK_SIZE</span><span class="p">):</span>
+        <span class="k">while</span> <span class="n">chunk</span> <span class="o">:=</span> <span class="n">file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">chunk_size</span><span class="p">):</span>
+            <span class="n">in_writer</span><span class="o">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+        <span class="n">in_writer</span><span class="o">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="n">MAGIC_BYTE_SEQUENCE</span><span class="p">)</span>
+        <span class="n">in_writer</span><span class="o">.</span><span class="n">close</span><span class="p">()</span></div>
+
+    <span class="c1"># noinspection PyMethodMayBeStatic</span>
+<div class="viewcode-block" id="DetectingBuffer.seekable"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.seekable">[docs]</a>    <span class="k">def</span> <span class="nf">seekable</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+    <span class="k">def</span> <span class="nf">_fetch_chunk</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_done</span><span class="p">:</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_out_read</span><span class="o">.</span><span class="n">recv</span><span class="p">()</span>
+        <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_done_reading</span><span class="p">()</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">chunk</span> <span class="o">==</span> <span class="n">MAGIC_BYTE_SEQUENCE</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_done_reading</span><span class="p">()</span>
+            <span class="k">return</span> <span class="s2">&quot;&quot;</span>
+        <span class="c1"># if self._newline is None:</span>
+        <span class="c1">#     chunk = chunk.replace(&quot;\r\n&quot;, &quot;\n&quot;)</span>
+        <span class="c1">#     chunk = chunk.replace(&quot;\r&quot;, &quot;\n&quot;)</span>
+        <span class="k">return</span> <span class="n">chunk</span>
+
+    <span class="k">def</span> <span class="nf">_done_reading</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_out_read</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_out_write</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_read</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_write</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_reader</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_processor</span><span class="o">.</span><span class="n">join</span><span class="p">()</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_done</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_opener</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="fm">__del__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_done_reading</span><span class="p">()</span>
+
+<div class="viewcode-block" id="DetectingBuffer.peek"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.peek">[docs]</a>    <span class="k">def</span> <span class="nf">peek</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">out</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="n">out</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span>
+        <span class="k">return</span> <span class="n">out</span></div>
+
+<div class="viewcode-block" id="DetectingBuffer.read"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.read">[docs]</a>    <span class="k">def</span> <span class="nf">read</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+        <span class="n">size</span> <span class="o">=</span> <span class="n">size</span> <span class="ow">or</span> <span class="o">-</span><span class="mi">1</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span><span class="p">:</span>
+                <span class="n">output</span> <span class="o">+=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+            <span class="k">while</span> <span class="n">chunk</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_chunk</span><span class="p">():</span>
+                <span class="n">output</span> <span class="o">+=</span> <span class="n">chunk</span>
+            <span class="k">return</span> <span class="n">output</span>
+        <span class="k">while</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span><span class="p">:</span>
+                <span class="n">nc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span><span class="p">[</span><span class="n">size</span><span class="p">:]</span>
+                <span class="n">output</span> <span class="o">+=</span> <span class="n">nc</span>
+                <span class="n">size</span> <span class="o">-=</span> <span class="nb">len</span><span class="p">(</span><span class="n">nc</span><span class="p">)</span>
+                <span class="k">continue</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_fetch_chunk</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">chunk</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">size</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="n">chunk</span><span class="p">[</span><span class="n">size</span><span class="p">:]</span>
+                <span class="n">output</span> <span class="o">+=</span> <span class="n">chunk</span><span class="p">[:</span><span class="n">size</span><span class="p">]</span>
+                <span class="k">break</span>
+
+            <span class="n">output</span> <span class="o">+=</span> <span class="n">chunk</span>
+            <span class="n">size</span> <span class="o">-=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">output</span></div>
+
+<div class="viewcode-block" id="DetectingBuffer.get_csv_dialect"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.get_csv_dialect">[docs]</a>    <span class="k">def</span> <span class="nf">get_csv_dialect</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">sniffer</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sniffer</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">delimiters</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">sample_size</span><span class="o">=</span><span class="n">CSV_SAMPLE_SIZE</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="n">sniffer</span> <span class="o">=</span> <span class="n">sniffer</span> <span class="ow">or</span> <span class="n">Sniffer</span><span class="p">()</span>
+        <span class="n">buffer</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">sample_size</span><span class="p">)</span>
+        <span class="n">dialect</span> <span class="o">=</span> <span class="n">sniffer</span><span class="o">.</span><span class="n">sniff</span><span class="p">(</span><span class="n">buffer</span><span class="p">,</span> <span class="n">delimiters</span><span class="o">=</span><span class="n">delimiters</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span> <span class="o">=</span> <span class="n">buffer</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_leftovers</span>
+        <span class="k">return</span> <span class="n">dialect</span></div></div>
+
+
+<div class="viewcode-block" id="Processor"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.Processor">[docs]</a><span class="k">class</span> <span class="nc">Processor</span><span class="p">(</span><span class="n">Process</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">in_reader</span><span class="p">:</span> <span class="n">Connection</span><span class="p">,</span> <span class="n">out_writer</span><span class="p">:</span> <span class="n">Connection</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;Processor&quot;</span><span class="p">,</span> <span class="n">daemon</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_in_reader</span> <span class="o">=</span> <span class="n">in_reader</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_out_writer</span> <span class="o">=</span> <span class="n">out_writer</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_total_bytes</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span> <span class="o">=</span> <span class="n">UniversalDetector</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span> <span class="o">=</span> <span class="n">DEFAULT_START_ENCODING</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">last_encodings</span><span class="p">:</span> <span class="n">deque</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_stop_feeding</span> <span class="o">=</span> <span class="kc">False</span>
+
+<div class="viewcode-block" id="Processor.feed_detector"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_detector">[docs]</a>    <span class="k">def</span> <span class="nf">feed_detector</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span><span class="o">.</span><span class="n">feed</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_best_encoding</span><span class="p">()</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">last_encodings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">result</span><span class="p">[</span><span class="s2">&quot;encoding&quot;</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">last_encodings</span><span class="p">)</span> <span class="o">==</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span><span class="p">}:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_stop_feeding</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_out_writer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span><span class="p">))</span></div>
+
+<div class="viewcode-block" id="Processor.get_best_encoding"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.Processor.get_best_encoding">[docs]</a>    <span class="k">def</span> <span class="nf">get_best_encoding</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">dd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span><span class="o">.</span><span class="n">done</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span><span class="o">.</span><span class="n">done</span> <span class="o">=</span> <span class="n">dd</span>
+        <span class="k">return</span> <span class="n">result</span></div>
+
+<div class="viewcode-block" id="Processor.feed_and_process"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_and_process">[docs]</a>    <span class="k">def</span> <span class="nf">feed_and_process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">chunk</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_stop_feeding</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_detector</span><span class="o">.</span><span class="n">done</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">_total_bytes</span> <span class="o">&gt;</span> <span class="n">MAX_DETECTION_SIZE</span><span class="p">:</span>
+            <span class="c1"># no more detection needed (at least for now)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_out_writer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">chunk</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span><span class="p">))</span>
+            <span class="k">except</span> <span class="ne">UnicodeError</span><span class="p">:</span>
+                <span class="n">_LOG</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+                    <span class="s1">&#39;Could not decode chunk with encoding &quot;</span><span class="si">%s</span><span class="s1">&quot;, re-feeding&#39;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">current_enc</span>
+                <span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">feed_detector</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">feed_detector</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Processor.run"><a class="viewcode-back" href="../../sheet_loader.html#sheet_loader.detecting_buffer.Processor.run">[docs]</a>    <span class="k">def</span> <span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">chunk</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">nc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_in_reader</span><span class="o">.</span><span class="n">recv_bytes</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+                <span class="n">nc</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="o">==</span> <span class="n">MAGIC_BYTE_SEQUENCE</span><span class="p">:</span>
+                <span class="n">nc</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+            <span class="n">chunk</span> <span class="o">+=</span> <span class="n">nc</span>
+
+            <span class="k">if</span> <span class="n">chunk</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="p">:</span>
+                <span class="c1"># empty chunk means we&#39;re done</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="ow">and</span> <span class="n">nc</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mh">0x7F</span><span class="p">:</span>
+                <span class="c1"># last byte is not ascii, let&#39;s get some more, so we don&#39;t split a character</span>
+                <span class="k">continue</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">feed_and_process</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_total_bytes</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+            <span class="n">chunk</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
+            <span class="k">if</span> <span class="n">nc</span> <span class="o">==</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span><span class="p">:</span>
+                <span class="c1"># empty next chunk means done</span>
+                <span class="k">break</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_out_writer</span><span class="o">.</span><span class="n">send</span><span class="p">(</span><span class="n">MAGIC_BYTE_SEQUENCE</span><span class="p">)</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_reader</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span>
+        <span class="n">catch_exceptions</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_out_writer</span><span class="o">.</span><span class="n">close</span><span class="p">,</span> <span class="p">[</span><span class="ne">OSError</span><span class="p">])()</span></div></div>
+</pre></div>
+
+           </div>
+          </div>
+          <footer>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2022, Daniel Sullivan.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
