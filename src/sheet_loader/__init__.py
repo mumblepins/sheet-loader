@@ -1,2 +1,3 @@
-# coding=utf-8
-from .data_loader import generic_load_sheet
+# -*- coding: utf-8 -*-
+
+__version__: str = "0.1.0"
