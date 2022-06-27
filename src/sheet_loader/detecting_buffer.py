@@ -29,12 +29,12 @@ class DetectingBuffer(Readable):
     def __init__(
         self,
         file: Readable | Openable | FilePathType,
-        # newline=None,
+        newline=None,
         **kwargs,
     ) -> None:
         super().__init__()
 
-        # self._newline = newline
+        self._newline = newline
         kwargs["mode"] = "rb"
         self._opener = LazyOpener(file, **kwargs)
         self._open_file = self._opener.open()
@@ -56,6 +56,7 @@ class DetectingBuffer(Readable):
         self._buffer: deque = deque()
         self._done = False
         self._leftovers = ""
+        self._closed = False
 
     @staticmethod
     def reader(file, in_writer: Connection, chunk_size=CHUNK_SIZE):
@@ -79,12 +80,14 @@ class DetectingBuffer(Readable):
         if chunk == MAGIC_BYTE_SEQUENCE:
             self._done_reading()
             return ""
-        # if self._newline is None:
-        #     chunk = chunk.replace("\r\n", "\n")
-        #     chunk = chunk.replace("\r", "\n")
+        if self._newline is None:
+            chunk = chunk.replace("\r\n", "\n")
+            chunk = chunk.replace("\r", "\n")
         return chunk
 
     def _done_reading(self):
+        if self._closed:
+            return
         catch_exceptions(self._out_read.close, [OSError])()
         catch_exceptions(self._out_write.close, [OSError])()
         catch_exceptions(self._in_read.close, [OSError])()
@@ -94,6 +97,7 @@ class DetectingBuffer(Readable):
 
         self._done = True
         self._opener.close()
+        self._closed = True
 
     def __del__(self):
         self._done_reading()
@@ -132,6 +136,33 @@ class DetectingBuffer(Readable):
             size -= len(chunk)
 
         return output
+
+    def readline(self):
+        str_buf = self.read(1024)
+        if self._newline is None:
+            nl = "\n"
+        else:
+            nl = self._newline
+        while nl not in str_buf:
+            r = self.read(1024)
+            str_buf += r
+            if r == "":
+                break
+        if nl in str_buf:
+            ret = str_buf[: str_buf.index(nl) + 1]
+            self._leftovers = str_buf[len(ret) :] + self._leftovers
+        else:
+            ret = str_buf
+        return ret
+
+    def __next__(self):
+        r = self.readline()
+        if r == "":
+            raise StopIteration
+        return r
+
+    def __iter__(self):
+        return self
 
     def get_csv_dialect(
         self,
@@ -202,8 +233,9 @@ class Processor(Process):
             if chunk == b"":
                 # empty chunk means we're done
                 break
-            if nc and nc[-1] > 0x7F:
-                # last byte is not ascii, let's get some more, so we don't split a character
+            if nc and (nc[-1] > 0x7F or nc[-1] in (ord("\n"), ord("\r"))):
+                # last byte is not ascii, or last byte is some type of line ending,
+                # let's get some more, so we don't split a character
                 continue
             self.feed_and_process(chunk)
             self._total_bytes += len(chunk)
