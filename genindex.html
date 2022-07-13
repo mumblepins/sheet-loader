@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; sheet-loader v1.1.0 documentation</title>
+  <title>Index &mdash; sheet-loader v1.1.1 documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -119,14 +119,10 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile">FastApiFile (class in sheet_loader.types)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_and_process">feed_and_process() (sheet_loader.detecting_buffer.Processor method)</a>
-</li>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.feed_detector">feed_detector() (sheet_loader.detecting_buffer.Processor method)</a>
+      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.file">file (sheet_loader.types.FastApiFile attribute)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.file">file (sheet_loader.types.FastApiFile attribute)</a>
-</li>
       <li><a href="sheet_loader.html#sheet_loader.types.FastApiFile.filename">filename (sheet_loader.types.FastApiFile attribute)</a>
 </li>
       <li><a href="sheet_loader.html#sheet_loader.helpers.frame_chunker">frame_chunker() (in module sheet_loader.helpers)</a>
@@ -137,12 +133,10 @@
 <h2 id="G">G</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.get_best_encoding">get_best_encoding() (sheet_loader.detecting_buffer.Processor method)</a>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.get_csv_dialect">get_csv_dialect() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.get_csv_dialect">get_csv_dialect() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
-</li>
       <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader.get_file_data">get_file_data() (sheet_loader.sheet_loader.SheetLoader method)</a>
 </li>
   </ul></td>
@@ -210,7 +204,7 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.peek">peek() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor">Processor (class in sheet_loader.detecting_buffer)</a>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.pipe_full">pipe_full() (in module sheet_loader.detecting_buffer)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -232,11 +226,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="sheet_loader.html#sheet_loader.types.Readable">Readable (class in sheet_loader.types)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.reader">reader() (sheet_loader.detecting_buffer.DetectingBuffer static method)</a>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.ReaderThread">ReaderThread (class in sheet_loader.detecting_buffer)</a>
 </li>
       <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.DetectingBuffer.readline">readline() (sheet_loader.detecting_buffer.DetectingBuffer method)</a>
 </li>
-      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.Processor.run">run() (sheet_loader.detecting_buffer.Processor method)</a>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.ReaderThread.run">run() (sheet_loader.detecting_buffer.ReaderThread method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -266,8 +260,6 @@
         <li><a href="sheet_loader.html#module-sheet_loader.detecting_buffer">module</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     sheet_loader.helpers
 
@@ -275,6 +267,8 @@
         <li><a href="sheet_loader.html#module-sheet_loader.helpers">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     sheet_loader.sheet_loader
 
@@ -292,6 +286,10 @@
       <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetFileType">SheetFileType (class in sheet_loader.sheet_loader)</a>
 </li>
       <li><a href="sheet_loader.html#sheet_loader.sheet_loader.SheetLoader">SheetLoader (class in sheet_loader.sheet_loader)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.ReaderThread.stop">stop() (sheet_loader.detecting_buffer.ReaderThread method)</a>
+</li>
+      <li><a href="sheet_loader.html#sheet_loader.detecting_buffer.StopThread">StopThread</a>
 </li>
   </ul></td>
 </tr></table>
