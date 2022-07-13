@@ -247,3 +247,4 @@ $RECYCLE.BIN/
 .nfs*
 /.idea/aws.xml
 /.idea/GitLink.xml
+/.idea/ghactions-toolbar.xml

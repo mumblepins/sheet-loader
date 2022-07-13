@@ -1,28 +1,27 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import ctypes
 import logging
+import select
 from collections import deque
 from csv import Sniffer
-from multiprocessing import Pipe, Process
-from multiprocessing.connection import Connection
+from multiprocessing import Pipe
+from threading import Thread
 from typing import Optional
 
-from chardet import UniversalDetector
-
+from .buffer_processor import MAGIC_BYTE_SEQUENCE, BufferProcessor
+from .connection import NonBlockConnection
 from .helpers import LazyOpener, catch_exceptions
 from .types import FilePathType, Openable, Readable
 
-_LOG = logging.getLogger(__name__)
-CHUNK_SIZE = 32 * 1024  # 128 kb chunks
-MAGIC_BYTE_SEQUENCE = b"\xde\xca\xf0\xde\xad\xbe\xef"
-MAX_DETECTION_SIZE = 1 * 1024 * 1024  # 1MB max detection size
-DEFAULT_START_ENCODING = "utf-8"
+CHUNK_SIZE = 32 * 1024
 ENCODING_PREFIX_LENGTH = 16
 CSV_SAMPLE_SIZE = 512 * 1024  # 512 kb sample size
 
 
 class DetectingBuffer(Readable):
+    # pylint: disable=too-many-instance-attributes
     def seek(self, __offset: int, __whence: int = ...) -> int:
         raise NotImplementedError
 
@@ -40,17 +39,16 @@ class DetectingBuffer(Readable):
         self._open_file = self._opener.open()
         self._in_read, self._in_write = Pipe(duplex=False)
         self._out_read, self._out_write = Pipe(duplex=False)
-        self._reader = Process(
-            target=self.reader,
-            kwargs={
-                "file": self._open_file,
-                "in_writer": self._in_write,
-                "chunk_size": kwargs.get("chunk_size", CHUNK_SIZE),
-            },
-            daemon=True,
+        self._reader = ReaderThread(
+            self._open_file,
+            NonBlockConnection.convert_connnection(self._in_write),
+            kwargs.get("chunk_size", CHUNK_SIZE),
         )
 
-        self._processor = Processor(in_reader=self._in_read, out_writer=self._out_write)
+        self._processor = BufferProcessor(
+            in_reader=self._in_read,
+            out_writer=NonBlockConnection.convert_connnection(self._out_write),
+        )
         self._reader.start()
         self._processor.start()
         self._buffer: deque = deque()
@@ -58,12 +56,7 @@ class DetectingBuffer(Readable):
         self._leftovers = ""
         self._closed = False
 
-    @staticmethod
-    def reader(file, in_writer: Connection, chunk_size=CHUNK_SIZE):
-        while chunk := file.read(chunk_size):
-            in_writer.send_bytes(chunk)
-        in_writer.send_bytes(MAGIC_BYTE_SEQUENCE)
-        in_writer.close()
+        self._log = logging.getLogger(__name__).getChild(self.__class__.__name__)
 
     # noinspection PyMethodMayBeStatic
     def seekable(self) -> bool:
@@ -74,6 +67,7 @@ class DetectingBuffer(Readable):
             return ""
         try:
             chunk = self._out_read.recv()
+            # self._log.debug("Received chunk: %s (%s bytes)", type(chunk), len(chunk))
         except EOFError:
             self._done_reading()
             return ""
@@ -88,13 +82,15 @@ class DetectingBuffer(Readable):
     def _done_reading(self):
         if self._closed:
             return
+        self._reader.stop()
+        self._processor.stop()
         catch_exceptions(self._out_read.close, [OSError])()
         catch_exceptions(self._out_write.close, [OSError])()
         catch_exceptions(self._in_read.close, [OSError])()
         catch_exceptions(self._in_write.close, [OSError])()
         self._reader.join()
         self._processor.join()
-
+        self._log.debug("Joined all thread/processes")
         self._done = True
         self._opener.close()
         self._closed = True
@@ -108,6 +104,9 @@ class DetectingBuffer(Readable):
         return out
 
     def read(self, size: int | None = None) -> str:
+        self._log.debug(
+            "Trying to read %s bytes (already have %s bytes)", size, len(self._leftovers)
+        )
         output = ""
         size = size or -1
         if size < 0:
@@ -119,8 +118,10 @@ class DetectingBuffer(Readable):
             return output
         while size > 0:
             if self._leftovers:
+                # self._log.debug("%s: Using leftovers: %s", threading.currentThread(), len(self._leftovers))
                 nc = self._leftovers[:size]
                 self._leftovers = self._leftovers[size:]
+                # self._log.debug("%s: Leftovers: %s", threading.currentThread(), len(self._leftovers))
                 output += nc
                 size -= len(nc)
                 continue
@@ -134,7 +135,7 @@ class DetectingBuffer(Readable):
 
             output += chunk
             size -= len(chunk)
-
+        # self._log.debug("Read %s bytes", len(output))
         return output
 
     def readline(self):
@@ -177,72 +178,58 @@ class DetectingBuffer(Readable):
         return dialect
 
 
-class Processor(Process):
-    def __init__(self, in_reader: Connection, out_writer: Connection):
-        super().__init__(name="Processor", daemon=True)
-        self._in_reader = in_reader
-        self._out_writer = out_writer
-        self._total_bytes = 0
-        self._detector = UniversalDetector()
-        self.current_enc = DEFAULT_START_ENCODING
-        self.last_encodings: deque = deque(maxlen=3)
-        self.result = None
-        self._stop_feeding = False
+class StopThread(BaseException):
+    pass
 
-    def feed_detector(self, chunk):
-        self._detector.feed(chunk)
 
-        self.result = self.get_best_encoding()
-        if self.result["encoding"] is not None:
-            self.last_encodings.append(self.current_enc)
-            self.current_enc = self.result["encoding"]
-            if set(self.last_encodings) == {self.current_enc}:
-                self._stop_feeding = True
-        self._out_writer.send(chunk.decode(self.current_enc))
+def pipe_full(conn, timeout=0.0):
+    _, w, _ = select.select([], [conn], [], timeout)
+    return 0 == len(w)
 
-    def get_best_encoding(self):
-        dd = self._detector.done
-        result = self._detector.close()
-        self._detector.done = dd
-        return result
 
-    def feed_and_process(self, chunk):
-        if self._stop_feeding or self._detector.done or self._total_bytes > MAX_DETECTION_SIZE:
-            # no more detection needed (at least for now)
-            try:
-                self._out_writer.send(chunk.decode(self.current_enc))
-            except UnicodeError:
-                _LOG.debug(
-                    'Could not decode chunk with encoding "%s", re-feeding', self.current_enc
-                )
-                self.feed_detector(chunk)
-        else:
-            self.feed_detector(chunk)
+class ReaderThread(Thread):
+    def __init__(self, file: Readable, in_writer: NonBlockConnection, chunk_size=CHUNK_SIZE):
+        super().__init__()
+        self._file = file
+        self._in_writer = in_writer
+        self._chunk_size = chunk_size
+        self._log = (
+            logging.getLogger(__name__).getChild(self.__class__.__name__).getChild(self.name)
+        )
+
+        # self._log.debug(os.get_blocking(self._in_writer.fileno()))
+        # os.set_blocking(self._in_writer.fileno(), False)
+        # self._log.debug(os.get_blocking(self._in_writer.fileno()))
+
+    def _reader(self):
+        while chunk := self._file.read(self._chunk_size):
+            self._log.info(pipe_full(self._in_writer))
+            self._in_writer.send_bytes(chunk)
+            # self._log.debug("Sent %s bytes", len(chunk))
+        # self._in_write_wrap.send_bytes_polled(MAGIC_BYTE_SEQUENCE)
+        self._in_writer.send_bytes(chunk)
+        self._log.debug("Sent magic byte sequence")
+        self._in_writer.close()
+        self._log.debug("Closed input")
 
     def run(self):
-        chunk = b""
-        while True:
-            try:
-                nc = self._in_reader.recv_bytes()
-            except EOFError:
-                nc = b""
-            if nc == MAGIC_BYTE_SEQUENCE:
-                nc = b""
-            chunk += nc
+        try:
+            self._reader()
+        except StopThread:
+            self._log.debug("stopped")
+        except Exception as e:  # pylint: disable=broad-except
+            self._log.exception(e)
 
-            if chunk == b"":
-                # empty chunk means we're done
-                break
-            if nc and (nc[-1] > 0x7F or nc[-1] in (ord("\n"), ord("\r"))):
-                # last byte is not ascii, or last byte is some type of line ending,
-                # let's get some more, so we don't split a character
-                continue
-            self.feed_and_process(chunk)
-            self._total_bytes += len(chunk)
-            chunk = b""
-            if nc == b"":
-                # empty next chunk means done
-                break
-        self._out_writer.send(MAGIC_BYTE_SEQUENCE)
-        catch_exceptions(self._in_reader.close, [OSError])()
-        catch_exceptions(self._out_writer.close, [OSError])()
+        finally:
+            self._log.debug("exiting")
+
+    def stop(self):
+        thread_id = self.ident
+        self._log.debug("Raising exception for thread %s", thread_id)
+        res = ctypes.pythonapi.PyThreadState_SetAsyncExc(
+            ctypes.c_long(thread_id), ctypes.py_object(SystemExit)
+        )
+        self._log.debug("Raised exception for thread %s: %s", thread_id, res)
+        if res > 1:
+            ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(thread_id), 0)
+            raise SystemError("PyThreadState_SetAsyncExc failed")

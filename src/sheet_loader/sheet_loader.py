@@ -5,7 +5,6 @@ import csv
 import inspect
 import logging
 from collections import abc
-from contextlib import contextmanager
 from enum import Enum, auto
 from pathlib import PurePath
 from typing import Any, Union
@@ -97,7 +96,7 @@ class SheetLoader(abc.Iterable):
     def __del__(self):
         self.close()
 
-    @contextmanager
+    # @contextmanager
     def load_csv(self, csv_read_func=None, **pd_kwargs):
         if csv_read_func is None:
             csv_read_func = pd.read_csv
