@@ -5,6 +5,7 @@ repos:
     rev: 1.2.0b2
     hooks:
       - id: poetry-lock
+        stages: [ manual ]
         args: [ "--no-update" ]
 #      - id: poetry-export
 #        args:
