@@ -1,7 +1,7 @@
 # Changelog
 
 
-## (unreleased)
+## v1.1.3 (2022-07-14)
 
 ### Fix
 
@@ -9,7 +9,7 @@
 
 ### Other
 
-  * [2022-07-14](440a878efcb4d4a25231a41bd32f19dbde1bf07c) – Chore: updated deps, changelog stuff.  <small>([Daniel Sullivan](mailto:mumblepins@users.noreply.github.com))</small>
+  * [2022-07-14](d5a5255e45265abfa725a7de4690efb16af8222a) – Chore: updated deps, changelog stuff.  <small>([Daniel Sullivan](mailto:mumblepins@users.noreply.github.com))</small>
 
 
 ## v1.1.2 (2022-07-13)
