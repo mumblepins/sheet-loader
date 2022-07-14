@@ -29,6 +29,7 @@ myst-parser = "*"
 
 importlib-resources = { version = "^5.7.1", python = "<3.9" }
 bump2version = "^1.0.1"
+gitchangelog = {extras = ["Mustache"], version = "^3.0.4"}
 
 
 
