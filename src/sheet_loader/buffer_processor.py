@@ -78,15 +78,16 @@ class BufferProcessor(KillableProcess):
     def feed_and_process(self, chunk):
         try:
             return self._feed_and_process(chunk)
-        except TypeError as e:
-            self._log.exception(e)
+        except TypeError as e:  # noqa: F841
+            pass
+            # self._log.exception(e)
         return False
 
     def _feed_and_process(self, chunk):
         # self._log.debug("%s %s %s", pipe_full(self._out_writer), self._out_writer.closed, self._in_reader.closed)
         if self._stop_feeding or self._detector.done or self._total_bytes > MAX_DETECTION_SIZE:
             # no more detection needed (at least for now)
-            self._log.debug("Not feeding")
+            # self._log.debug("Not feeding")
             try:
                 return self._send(chunk.decode(self.current_enc))
             except UnicodeError:
@@ -95,7 +96,7 @@ class BufferProcessor(KillableProcess):
                 )
                 return self.feed_detector(chunk)
         else:
-            self._log.debug("Feeding")
+            # self._log.debug("Feeding")
             return self.feed_detector(chunk)
 
     def _stop(self):

@@ -203,7 +203,7 @@ class ReaderThread(Thread):
 
     def _reader(self):
         while chunk := self._file.read(self._chunk_size):
-            self._log.info(pipe_full(self._in_writer))
+            # self._log.info(pipe_full(self._in_writer))
             self._in_writer.send_bytes(chunk)
             # self._log.debug("Sent %s bytes", len(chunk))
         # self._in_write_wrap.send_bytes_polled(MAGIC_BYTE_SEQUENCE)
