@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>sheet_loader.detecting_buffer &mdash; sheet-loader v1.1.2 documentation</title>
+  <title>sheet_loader.detecting_buffer &mdash; sheet-loader v1.1.3 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -270,7 +270,7 @@
 
     <span class="k">def</span> <span class="nf">_reader</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">while</span> <span class="n">chunk</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_file</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_chunk_size</span><span class="p">):</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">pipe_full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_in_writer</span><span class="p">))</span>
+            <span class="c1"># self._log.info(pipe_full(self._in_writer))</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_in_writer</span><span class="o">.</span><span class="n">send_bytes</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
             <span class="c1"># self._log.debug(&quot;Sent %s bytes&quot;, len(chunk))</span>
         <span class="c1"># self._in_write_wrap.send_bytes_polled(MAGIC_BYTE_SEQUENCE)</span>
